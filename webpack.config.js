@@ -5,7 +5,7 @@ const isProduction = process.env.NODE_ENV == 'production';
 const stylesHandler = 'style-loader';
 
 const config = {
-  entry: './src/webxr-planes/index.ts',
+  entry: './src/ar-video-demo/index.ts',
   output: {
     filename: 'app-[fullhash].js',
     path: path.resolve(__dirname, 'dist'),
