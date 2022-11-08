@@ -1,23 +1,119 @@
-import * as THREE from 'three';
 import { ARButton } from 'three/examples/jsm/webxr/ARButton.js';
 import { Player } from 'shaka-player';
 import { PlayoutData } from '../helpers/playout-data';
+import { CylinderGeometry, Group, HemisphereLight, Mesh, MeshPhongMaterial, Object3D, PerspectiveCamera, Scene, Vector3, WebGLRenderer, WebXRManager } from 'three';
 
-let camera: THREE.PerspectiveCamera,
-    scene: THREE.Scene,
-    renderer: THREE.WebGLRenderer;
-let controller: THREE.Object3D<THREE.Event> | THREE.Group;
-let videoElement;
+let camera: PerspectiveCamera,
+    scene: Scene,
+    renderer: WebGLRenderer;
+let controller: Object3D<Event> | Group;
+let videoElement: HTMLVideoElement;
 let videoPlayer: Player;
+let session: any;
 
 init();
 animate();
 
-async function createVideoPlayer() {
-    if (videoPlayer) {
-        return;
+async function showVideoPlayer() {
+    try
+    {
+        const refSpace = renderer.xr.getReferenceSpace() as any;
+        const xrMediaBinding = new XRMediaBinding(session);
+    
+        const quadLayer = xrMediaBinding.createQuadLayer(videoElement, {
+            space: refSpace
+            });
+            
+        quadLayer.transform = new XRRigidTransform({z: -2});
+        quadLayer.width = 0.5;
+        quadLayer.height = 0.25;
+    
+        session.updateRenderState({
+            layers: [quadLayer, (renderer.xr as any).getBaseLayer()],
+        } as any);
+
+        console.log('**** showVideoPlayer completed');
+    } catch (e) {
+        console.log('**** showVideoPlayer error', JSON.stringify(e));
+    }
+}
+
+let isStarted = false;
+
+async function init() {
+    const container = document.createElement( 'div' );
+    document.body.appendChild( container );
+
+    scene = new Scene();
+
+    camera = new PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 0.01, 20 );
+
+    const light = new HemisphereLight( 0xffffff, 0xbbbbff, 1 );
+    light.position.set( 0.5, 1, 0.25 );
+    scene.add( light );
+
+    renderer = new WebGLRenderer( { antialias: true, alpha: true } );
+    renderer.setPixelRatio( window.devicePixelRatio );
+    renderer.setSize( window.innerWidth, window.innerHeight );
+    renderer.xr.enabled = true;
+    container.appendChild( renderer.domElement );
+
+    renderer.xr.addEventListener('sessionstart', async (event) => {
+        session = (event.target as WebXRManager).getSession();
+
+        if (!isStarted) {
+            isStarted = true;
+
+            console.log('**** calling init player', session);
+            await initPlayer();
+
+            console.log('**** calling showVideoPlayer', session);
+            await showVideoPlayer();
+        }
+    });
+
+    //
+
+    const sessionInit = { optionalFeatures: [ 'hand-tracking', 'layers' ] };
+    document.body.appendChild( ARButton.createButton( renderer, sessionInit ) );
+
+    //
+
+    const geometry = new CylinderGeometry( 0, 0.05, 0.2, 32 ).rotateX( Math.PI / 2 );
+
+    function onSelect() {
+
+        const material = new MeshPhongMaterial( { color: 0xffffff * Math.random() } );
+        const mesh = new Mesh( geometry, material );
+        mesh.position.set( 0, 0, - 0.3 ).applyMatrix4( controller.matrixWorld );
+        mesh.quaternion.setFromRotationMatrix( controller.matrixWorld );
+        scene.add( mesh );
+
     }
 
+    controller = renderer.xr.getController( 0 );
+    controller.addEventListener( 'select', onSelect );
+    scene.add( controller );
+
+    window.addEventListener( 'resize', onWindowResize );
+}
+
+function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+
+    renderer.setSize( window.innerWidth, window.innerHeight );
+}
+
+function animate() {
+    renderer.setAnimationLoop( render );
+}
+
+function render() {
+    renderer.render( scene, camera );
+}
+
+async function initPlayer() {
     const assets: Array<PlayoutData> = [
         {
             name: 'Jumanji Trailer | 30fps | 1080p',
@@ -78,66 +174,6 @@ async function createVideoPlayer() {
     }
 
     await videoPlayer?.load(asset.streamUri);
-}
 
-function init() {
-    const container = document.createElement( 'div' );
-    document.body.appendChild( container );
-
-    scene = new THREE.Scene();
-
-    camera = new THREE.PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 0.01, 20 );
-
-    const light = new THREE.HemisphereLight( 0xffffff, 0xbbbbff, 1 );
-    light.position.set( 0.5, 1, 0.25 );
-    scene.add( light );
-
-    //
-
-    renderer = new THREE.WebGLRenderer( { antialias: true, alpha: true } );
-    renderer.setPixelRatio( window.devicePixelRatio );
-    renderer.setSize( window.innerWidth, window.innerHeight );
-    renderer.xr.enabled = true;
-    container.appendChild( renderer.domElement );
-
-    //
-
-    document.body.appendChild( ARButton.createButton( renderer ) );
-
-    //
-
-    const geometry = new THREE.CylinderGeometry( 0, 0.05, 0.2, 32 ).rotateX( Math.PI / 2 );
-
-    function onSelect() {
-
-        const material = new THREE.MeshPhongMaterial( { color: 0xffffff * Math.random() } );
-        const mesh = new THREE.Mesh( geometry, material );
-        mesh.position.set( 0, 0, - 0.3 ).applyMatrix4( controller.matrixWorld );
-        mesh.quaternion.setFromRotationMatrix( controller.matrixWorld );
-        scene.add( mesh );
-
-        createVideoPlayer();
-
-    }
-
-    controller = renderer.xr.getController( 0 );
-    controller.addEventListener( 'select', onSelect );
-    scene.add( controller );
-
-    window.addEventListener( 'resize', onWindowResize );
-}
-
-function onWindowResize() {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-
-    renderer.setSize( window.innerWidth, window.innerHeight );
-}
-
-function animate() {
-    renderer.setAnimationLoop( render );
-}
-
-function render() {
-    renderer.render( scene, camera );
+    console.log('**** init player completed');
 }
