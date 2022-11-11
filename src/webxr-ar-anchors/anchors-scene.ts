@@ -1,14 +1,17 @@
-import { BoxBufferGeometry, Group, HemisphereLight, Mesh, MeshBasicMaterial, PerspectiveCamera, Quaternion, Scene, WebGLRenderer } from "three";
+import { BoxBufferGeometry, Group, HemisphereLight, Mesh, MeshBasicMaterial, PerspectiveCamera, Quaternion, Scene, WebGLRenderer, WebXRManager } from "three";
 import { ARButton } from "three/examples/jsm/webxr/ARButton";
+import { VideoPlayer } from "./videoplayer";
 
 export class AnchorsScene {
     private renderer;
     private scene;
     private camera;
+    private session;
     private anchorCubes = new Map();
     private anchorsAdded = new Set();
     private controller0;
     private controller1;
+    private videoPlayer: VideoPlayer | undefined;
 
     constructor() {
         this.init();
@@ -39,7 +42,8 @@ export class AnchorsScene {
         //
 
         document.body.appendChild( ARButton.createButton( this.renderer, {
-            requiredFeatures: ['anchors']
+            requiredFeatures: ['anchors'],
+            optionalFeatures: [ 'hand-tracking', 'layers' ]
         } ) );
 
         this.controller0 = this.renderer.xr.getController( 0 );
@@ -53,8 +57,7 @@ export class AnchorsScene {
 
         window.addEventListener( 'resize', this.onWindowResize );
 
-        this.renderer.xr.addEventListener( 'sessionstart', () => {
-
+        this.renderer.xr.addEventListener( 'sessionstart', async (event) => {
             this.camera.position.set( 0, 0, 0 );
 
             const val = localStorage.getItem( 'webxr_ar_anchors_handles' );
@@ -63,14 +66,16 @@ export class AnchorsScene {
             for (const uuid of persistentHandles) {
                 this.renderer.xr.restoreAnchor( uuid );
             }
+
+            this.session = (event.target as WebXRManager).getSession();
         } );
 
         this.renderer.xr.addEventListener( 'anchoradded', (e) => {
-            console.log( "anchor added", e.data )
+            // console.log( "anchor added", e.data )
         } );
 
         this.renderer.xr.addEventListener( 'anchorremoved', (e) => {
-            console.log( "anchor removed", e.data )
+            // console.log( "anchor removed", e.data )
         } );
 
         this.renderer.xr.addEventListener( 'anchorposechanged', (e) => {
@@ -84,13 +89,13 @@ export class AnchorsScene {
             }
         } );
 
-        this.renderer.xr.addEventListener( 'anchorsdetected', (e) => {
+        this.renderer.xr.addEventListener( 'anchorsdetected', async (e) => {
             const detectedAnchors = e.data;
             const referenceSpace = this.renderer.xr.getReferenceSpace();
 
             // console.log( `Detected ${detectedAnchors.size} anchors` );
 
-            detectedAnchors.forEach( anchor => {
+            detectedAnchors.forEach( async anchor => {
                 if ( this.anchorsAdded.has( anchor ) ) return;
 
                 this.anchorsAdded.add( anchor );
@@ -98,12 +103,20 @@ export class AnchorsScene {
                 const anchorPose = frame.getPose( anchor.anchorSpace, referenceSpace );
 
                 const boxMesh = new Mesh(
-                    new BoxBufferGeometry( 0.075, 0.075, 0.075 ),
+                    new BoxBufferGeometry( 0.150, 0.075, 0.02 ),
                     new MeshBasicMaterial( { color: 0xffffff * Math.random() } )
                 );
                 boxMesh.matrixAutoUpdate = false;
                 boxMesh.matrix.fromArray( anchorPose.transform.matrix );
                 this.scene.add( boxMesh );
+
+                if (this.videoPlayer === undefined) {
+                    this.videoPlayer = new VideoPlayer();
+                    this.videoPlayer.init();
+                }
+
+                this.videoPlayer.showVideoPlayer(this.renderer, this.session, boxMesh);
+
                 this.anchorCubes.set( anchor, boxMesh );
             } );
         } );
@@ -114,19 +127,15 @@ export class AnchorsScene {
             const controllerPosition = controller.position;
             const controllerRotation = new Quaternion().setFromEuler( controller.rotation );
 
-            // if (event.data.handedness === 'right') {
-            //     console.log('right hand detected');
-            //     this.rightJoints = (hand as any).joints;
-            // }
-
             const val = localStorage.getItem( 'webxr_ar_anchors_handles' );
             const persistentHandles = JSON.parse( val! ) || [];
 
-            if ( persistentHandles.length >= 5 ) {
+            if ( persistentHandles.length >= 1 ) {
                 while( persistentHandles.length != 0 ) {
                     const handle = persistentHandles.pop();
                     await this.renderer.xr.deleteAnchor( handle );
-                    localStorage.setItem( 'webxr_ar_anchors_handles', JSON.stringify( persistentHandles ) );
+                    await localStorage.setItem( 'webxr_ar_anchors_handles', JSON.stringify( persistentHandles ) );
+                    await this.videoPlayer?.hideVideoPlayer(this.renderer, this.session);
                 }
 
                 this.anchorCubes.forEach( ( cube, handle ) => {
@@ -137,6 +146,7 @@ export class AnchorsScene {
 
             } else {
                 const uuid = await this.renderer.xr.createAnchor( controllerPosition, controllerRotation, true );
+                //const uuid = await this.renderer.xr.createAnchor( controllerPosition, true );
                 persistentHandles.push( uuid );
                 localStorage.setItem( 'webxr_ar_anchors_handles', JSON.stringify(persistentHandles) );
             }
