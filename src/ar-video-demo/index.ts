@@ -1,7 +1,7 @@
 import { ARButton } from 'three/examples/jsm/webxr/ARButton.js';
 import { Player } from 'shaka-player';
 import { PlayoutData } from '../helpers/playout-data';
-import { CylinderGeometry, Group, HemisphereLight, Mesh, MeshPhongMaterial, Object3D, PerspectiveCamera, Scene, Vector3, WebGLRenderer, WebXRManager } from 'three';
+import { CylinderGeometry, Group, HemisphereLight, Mesh, MeshPhongMaterial, Object3D, PerspectiveCamera, Scene, WebGLRenderer, WebXRManager } from 'three';
 
 let camera: PerspectiveCamera,
     scene: Scene,
