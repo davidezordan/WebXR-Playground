@@ -1,3 +1,3 @@
-import { AnchorsScene } from './anchors-scene';
+import { AnchorsPlanesHitVideoScene } from "./anchors-planes-hit-video-scene";
 
-new AnchorsScene();
+new AnchorsPlanesHitVideoScene();

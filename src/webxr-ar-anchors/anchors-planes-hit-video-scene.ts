@@ -1,8 +1,9 @@
-import { BoxBufferGeometry, CylinderGeometry, Group, HemisphereLight, Mesh, MeshBasicMaterial, MeshPhongMaterial, PerspectiveCamera, Quaternion, RingGeometry, Scene, WebGLRenderer, WebXRManager } from "three";
+import { BoxGeometry, CylinderGeometry, Group, HemisphereLight, Mesh, MeshBasicMaterial, MeshPhongMaterial, PerspectiveCamera, Quaternion, RingGeometry, Scene, WebGLRenderer, WebXRManager } from "three";
 import { ARButton } from "three/examples/jsm/webxr/ARButton";
+import { PlanesManager } from "./planes-manager";
 import { VideoPlayer } from "./videoplayer";
 
-export class AnchorsPlanesScene {
+export class AnchorsPlanesHitVideoScene {
     private renderer;
     private scene;
     private camera;
@@ -12,10 +13,10 @@ export class AnchorsPlanesScene {
     private controller0;
     private controller1;
     private videoPlayer: VideoPlayer | undefined;
-    private planesAdded = new Set();
     private reticle;
     private hitTestSource = null;
     private hitTestSourceRequested = false;
+    private planeManager?: PlanesManager;
 
     constructor() {
         this.init();
@@ -46,7 +47,7 @@ export class AnchorsPlanesScene {
         //
 
         document.body.appendChild( ARButton.createButton( this.renderer, {
-            requiredFeatures: ['anchors', 'plane-detection', 'hit-test'],
+            requiredFeatures: ['anchors', 'plane-detection'],
             optionalFeatures: [ 'hand-tracking', 'layers' ]
         } ) );
 
@@ -56,7 +57,8 @@ export class AnchorsPlanesScene {
         this.controller1 = this.renderer.xr.getController( 1 );
         this.scene.add( this.controller1 );
 
-        this.handleControllerEventsHitTest(this.controller0);
+        // this.handleControllerEventsHitTest(this.controller0);
+        this.handleControllerEventsAnchors(this.controller0);
         this.handleControllerEventsAnchors(this.controller1);
 
         window.addEventListener( 'resize', this.onWindowResize );
@@ -74,127 +76,96 @@ export class AnchorsPlanesScene {
             this.session = (event.target as WebXRManager).getSession();
         } );
 
-        this.initPlanes();
+        // Init planes.
+        this.planeManager = new PlanesManager(this.renderer);
 
         this.initAnchors();
 
-        this.initHitTest();
-    }   
+        // this.initHitTest();
 
-    private initAnchors() {
-        this.renderer.xr.addEventListener( 'anchoradded', (e) => {
-            // console.log( "anchor added", e.data )
-        } );
-
-        this.renderer.xr.addEventListener( 'anchorremoved', (e) => {
-            // console.log( "anchor removed", e.data )
-        } );
-
-        this.renderer.xr.addEventListener( 'anchorposechanged', (e) => {
-            const { anchor, pose } = e.data;
-            const anchorCube = this.anchorCubes.get( anchor );
-            if ( pose ) {
-                anchorCube.visible = true;
-                anchorCube.matrix.fromArray( pose.transform.matrix );
-            } else {
-                anchorCube.visible = false;
-            }
-        } );
-
-        this.renderer.xr.addEventListener( 'anchorsdetected', async (e) => {
-            const detectedAnchors = e.data;
-            const referenceSpace = this.renderer.xr.getReferenceSpace();
-
-            // console.log( `Detected ${detectedAnchors.size} anchors` );
-
-            detectedAnchors.forEach( async anchor => {
-                if ( this.anchorsAdded.has( anchor ) ) return;
-
-                this.anchorsAdded.add( anchor );
-                const frame = this.renderer.xr.getFrame();
-                const anchorPose = frame.getPose( anchor.anchorSpace, referenceSpace );
-
-                const boxMesh = new Mesh(
-                    new BoxBufferGeometry( 0.150, 0.075, 0.02 ),
-                    new MeshBasicMaterial( { color: 0xffffff * Math.random() } )
-                );
-                boxMesh.matrixAutoUpdate = false;
-                boxMesh.matrix.fromArray( anchorPose.transform.matrix );
-                this.scene.add( boxMesh );
-
-                if (this.videoPlayer === undefined) {
-                    this.videoPlayer = new VideoPlayer();
-                    this.videoPlayer.init();
-                }
-
-                this.videoPlayer.showVideoPlayer(this.renderer, this.session, boxMesh);
-
-                this.anchorCubes.set( anchor, boxMesh );
-            } );
-        } );
+        this.session.addEventListener('end', () => {
+            this.destroy();
+        });
     }
 
-    private initPlanes() {
-        this.renderer.xr.addEventListener( 'planeadded', (e) => {
-            console.log( "plane added", e.data )
-        });
-    
-        this.renderer.xr.addEventListener( 'planeremoved', (e) => {
-            console.log( "plane removed", e.data )
-        });
-    
-        this.renderer.xr.addEventListener( 'planechanged', (e) => {
-            console.log( "plane changed", e.data)
-        });
+    destroy() {
+        this.planeManager?.destroy();
 
-        this.renderer.xr.addEventListener( 'planesdetected', (e) => {
-            const detectedPlanes = e.data;
-            const referenceSpace = this.renderer.xr.getReferenceSpace();
-    
-            console.log( `Detected ${detectedPlanes.size} planes` );
-    
-            // @ts-ignore
-            detectedPlanes.forEach((plane) => {
-    
-                if ( this.planesAdded.has( plane ) ) return;
-                
-                this.planesAdded.add( plane );
-                
-                const frame = (this.renderer.xr as any).getFrame();
-                const planePose = frame.getPose( plane.planeSpace, referenceSpace );
-                const polygon = plane.polygon;
-    
-                let minX = Number.MAX_SAFE_INTEGER;
-                let maxX = Number.MIN_SAFE_INTEGER;
-                let minZ = Number.MAX_SAFE_INTEGER;
-                let maxZ = Number.MIN_SAFE_INTEGER;
-    
-                polygon.forEach( (point: { x: number; z: number; }) => {
-    
-                    minX = Math.min( minX, point.x );
-                    maxX = Math.max( maxX, point.x );
-                    minZ = Math.min( minZ, point.z );
-                    maxZ = Math.max( maxZ, point.z );
-    
-                } );
-    
-                // const width = maxX - minX;
-                // const height = maxZ - minZ;
-    
-                // const boxMesh = new THREE.Mesh(
-                //     new THREE.BoxGeometry( width, 0.01, height ),
-                //     new THREE.MeshBasicMaterial( { color: 0xffffff * Math.random() } )
-                // );
-                // boxMesh.matrixAutoUpdate = false;
-                // boxMesh.matrix.fromArray( planePose.transform.matrix );
-                // scene.add( boxMesh );
-    
-            } );
+        this.clearAnchors();
+    }
+
+    private initAnchors() {
+        // TODO: move to separate class.
+
+        this.renderer.xr.addEventListener( 'anchoradded', this.anchorAdded);
+        this.renderer.xr.addEventListener( 'anchorremoved', this.anchorRemoved);
+        this.renderer.xr.addEventListener( 'anchorposechanged', this.anchorChanged);
+        this.renderer.xr.addEventListener( 'anchorsdetected', this.anchorsDetected);
+    }
+
+    private clearAnchors() {
+        this.renderer.xr.removeEventListener( 'anchoradded', this.anchorAdded);
+        this.renderer.xr.removeEventListener( 'anchorremoved', this.anchorRemoved);
+        this.renderer.xr.removeEventListener( 'anchorposechanged', this.anchorChanged);
+        this.renderer.xr.removeEventListener( 'anchorsdetected', this.anchorsDetected);
+    }
+
+    private anchorAdded = (e) => {
+        // console.log( "anchor added", e.data )
+    };
+
+    private anchorRemoved = (e) => {
+        // console.log( "anchor removed", e.data )
+    };
+
+    private anchorChanged = (e) => {
+        const { anchor, pose } = e.data;
+        const anchorCube = this.anchorCubes.get( anchor );
+        if ( pose ) {
+            anchorCube.visible = true;
+            anchorCube.matrix.fromArray( pose.transform.matrix );
+        } else {
+            anchorCube.visible = false;
+        }
+    };
+
+    private anchorsDetected = async (e) => {
+        const detectedAnchors = e.data;
+        const referenceSpace = this.renderer.xr.getReferenceSpace();
+
+        // console.log( `Detected ${detectedAnchors.size} anchors` );
+
+        detectedAnchors.forEach( async anchor => {
+            if ( this.anchorsAdded.has( anchor ) ) return;
+
+            this.anchorsAdded.add( anchor );
+            const frame = await this.renderer.xr.getFrame();
+            const anchorPose = await frame.getPose( anchor.anchorSpace, referenceSpace );
+
+            const boxMesh = new Mesh(
+                new BoxGeometry( 0.150, 0.075, 0.02 ),
+                new MeshBasicMaterial( { color: 0xffffff * Math.random() } )
+            );
+            boxMesh.matrixAutoUpdate = false;
+            await boxMesh.matrix.fromArray( anchorPose.transform.matrix );
+            await this.scene.add( boxMesh );
+
+            if (this.videoPlayer === undefined) {
+                this.videoPlayer = new VideoPlayer();
+                this.videoPlayer.init();
+            }
+
+            this.videoPlayer.showVideoPlayer(this.renderer, this.session, boxMesh);
+
+            this.anchorCubes.set( anchor, boxMesh );
         } );
     };
 
     private initHitTest() {
         //
+
+        // TODO: investigate why it's not working on Quest.
+
         this.reticle = new Mesh(
             new RingGeometry( 0.15, 0.2, 32 ).rotateX( - Math.PI / 2 ),
             new MeshBasicMaterial()
@@ -221,6 +192,11 @@ export class AnchorsPlanesScene {
 
     private handleControllerEventsAnchors(controller: Group) {
         controller.addEventListener('selectend', async (event: any) => {
+            if (event.data.handedness === 'right') {
+                console.log('right hand detected');
+                return;
+            }
+
             const controllerPosition = controller.position;
             const controllerRotation = new Quaternion().setFromEuler( controller.rotation );
 
