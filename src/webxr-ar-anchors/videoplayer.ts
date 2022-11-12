@@ -31,6 +31,7 @@ export class VideoPlayer {
         await this.videoPlayer?.load(asset.streamUri);
     }
 
+    private errorCount = 0;
     public async showVideoPlayer(renderer: WebGLRenderer, session: any, tv: Object3D) {
         try
         {
@@ -55,6 +56,8 @@ export class VideoPlayer {
             //     } as any);
             // }
 
+            await this.videoElement.play();
+
             this.videoLayer = await xrMediaBinding.createQuadLayer(this.videoElement, {
                 space: refSpace,
                 // layout: 'stereo-left-right',
@@ -71,10 +74,18 @@ export class VideoPlayer {
             session.updateRenderState({
                 layers: [this.videoLayer, (renderer.xr as any).getBaseLayer()],
             } as any);
-    
-            this.videoElement.play();
+
+            this.errorCount = 0;
         } catch (e) {
             console.log('**** showVideoPlayer error', JSON.stringify(e));
+
+            // TODO: fix this hack
+            this.errorCount++;
+            if (this.errorCount <=2) {
+                setTimeout(() => this.showVideoPlayer(renderer, session, tv), 500);
+            } else {
+                this.errorCount = 0;
+            }
         }
     }
 

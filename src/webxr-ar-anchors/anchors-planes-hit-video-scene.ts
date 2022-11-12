@@ -208,7 +208,7 @@ export class AnchorsPlanesHitVideoScene {
                     const handle = persistentHandles.pop();
                     await this.renderer.xr.deleteAnchor( handle );
                     await localStorage.setItem( 'webxr_ar_anchors_handles', JSON.stringify( persistentHandles ) );
-                    await this.videoPlayer?.hideVideoPlayer(this.renderer, this.session);
+                    // await this.videoPlayer?.hideVideoPlayer(this.renderer, this.session);
                 }
 
                 this.anchorCubes.forEach( ( cube, handle ) => {
