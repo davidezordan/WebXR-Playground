@@ -89,8 +89,12 @@ export class VideoPlayer {
         }
     }
 
-    public async hideVideoPlayer(renderer: WebGLRenderer, session: any) {
-        this.videoElement.pause();
+    public async pause() {
+        await this.videoElement.pause();
+    }
+
+    public async play() {
+        await this.videoElement.play();
     }
 
     private assets: Array<PlayoutData> = [

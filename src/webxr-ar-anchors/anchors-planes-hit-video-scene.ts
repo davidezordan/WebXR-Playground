@@ -1,5 +1,6 @@
 import { BoxGeometry, CylinderGeometry, Group, HemisphereLight, Mesh, MeshBasicMaterial, MeshPhongMaterial, PerspectiveCamera, Quaternion, RingGeometry, Scene, WebGLRenderer, WebXRManager } from "three";
 import { ARButton } from "three/examples/jsm/webxr/ARButton";
+import { Controllers, EventType } from "../helpers/controllers";
 import { PlanesManager } from "./planes-manager";
 import { VideoPlayer } from "./videoplayer";
 
@@ -12,18 +13,16 @@ export class AnchorsPlanesHitVideoScene {
     private anchorsAdded = new Set();
     private controller0;
     private controller1;
-    private videoPlayer: VideoPlayer | undefined;
+    private videoPlayer?: VideoPlayer;
     private reticle;
-    private hitTestSource = null;
-    private hitTestSourceRequested = false;
     private planeManager?: PlanesManager;
+    private controllers?: Controllers;
 
     constructor() {
         this.init();
-        this.animate();
     }
 
-    private init() {
+    private async init() {
 
         const container = document.createElement( 'div' );
         document.body.appendChild( container );
@@ -43,6 +42,7 @@ export class AnchorsPlanesHitVideoScene {
         this.renderer.setSize( window.innerWidth, window.innerHeight );
         this.renderer.xr.enabled = true;
         container.appendChild( this.renderer.domElement );
+        this.renderer.setAnimationLoop(this.render);
 
         //
 
@@ -60,6 +60,8 @@ export class AnchorsPlanesHitVideoScene {
         // this.handleControllerEventsHitTest(this.controller0);
         this.handleControllerEventsAnchors(this.controller0);
         this.handleControllerEventsAnchors(this.controller1);
+
+        this.controllers = new Controllers(this.renderer, this.scene, this.handleControllerEvent);
 
         window.addEventListener( 'resize', this.onWindowResize );
 
@@ -81,8 +83,6 @@ export class AnchorsPlanesHitVideoScene {
 
         this.initAnchors();
 
-        // this.initHitTest();
-
         this.session.addEventListener('end', () => {
             this.destroy();
         });
@@ -90,8 +90,22 @@ export class AnchorsPlanesHitVideoScene {
 
     destroy() {
         this.planeManager?.destroy();
-
         this.clearAnchors();
+    }
+
+    private handleControllerEvent = (evt: EventType) => {
+        switch (evt) {
+            case EventType.pause:
+                this.videoPlayer?.pause();
+                break;
+            case EventType.play:
+                this.videoPlayer?.play();
+                break;
+            case EventType.exit:
+                this.videoPlayer?.pause();
+                this.session?.end();
+                break;
+        }
     }
 
     private initAnchors() {
@@ -233,49 +247,9 @@ export class AnchorsPlanesHitVideoScene {
         this.renderer.setSize( window.innerWidth, window.innerHeight );
     }
 
-// //
-
-    private animate() {
-        this.renderer.setAnimationLoop( this.render );
-    }
-
-    private render = (timestamp, frame) => {
-        if ( frame ) {
-            const referenceSpace = this.renderer.xr.getReferenceSpace();
-            const session = this.renderer.xr.getSession();
-
-            if ( this.hitTestSourceRequested === false ) {
-                session.requestReferenceSpace('viewer').then( referenceSpace => {
-                    session.requestHitTestSource( { space: referenceSpace } )
-                    .then( ( source ) => {
-                        this.hitTestSource = source;
-                    } );
-
-                } );
-
-                session.addEventListener( 'end', () => {
-                    this.hitTestSourceRequested = false;
-                    this.hitTestSource = null;
-                } );
-
-                this.hitTestSourceRequested = true;
-            }
-
-            if ( this.hitTestSource ) {
-
-                const hitTestResults = frame.getHitTestResults( this.hitTestSource );
-
-                if ( hitTestResults.length ) {
-                    const hit = hitTestResults[ 0 ];
-
-                    this.reticle.visible = true;
-                    this.reticle.matrix.fromArray( hit.getPose( referenceSpace ).transform.matrix );
-                } else {
-                    this.reticle.visible = false;
-                }
-            }
-        }
-
-        this.renderer.render( this.scene, this.camera );
+    private render = () => {
+        if (!this.renderer.xr.isPresenting) return;
+        this.renderer.render(this.scene, this.camera);
+        this.controllers?.update();
     }
 }
