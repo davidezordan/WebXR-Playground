@@ -1,5 +1,6 @@
 import { WebGLRenderer } from "three";
 
+// TODO: Ideally the video player should be pinnable in one of the walls detected by the PlanesManager.
 export class PlanesManager {
     private planesAdded = new Set();
 
