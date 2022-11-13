@@ -1,12 +1,13 @@
-import { BoxGeometry, CylinderGeometry, Group, HemisphereLight, Mesh, MeshBasicMaterial, MeshPhongMaterial, PerspectiveCamera, Quaternion, RingGeometry, Scene, WebGLRenderer, WebXRManager } from "three";
+import { BoxGeometry, Group, HemisphereLight, Mesh, MeshBasicMaterial, MeshPhongMaterial, PerspectiveCamera, Quaternion, RingGeometry, Scene, WebGLRenderer, WebXRManager } from "three";
 import { ARButton } from "three/examples/jsm/webxr/ARButton";
-import { Controllers, EventType } from "../helpers/controllers";
+import { Controllers } from "../helpers/controllers";
+import { EventType } from "../helpers/event-type";
 import { PlanesManager } from "./planes-manager";
 import { VideoPlayer } from "./videoplayer";
 
 export class AnchorsPlanesHitVideoScene {
     private renderer;
-    private scene;
+    private scene?: Scene;
     private camera;
     private session;
     private anchorCubes = new Map();
@@ -14,7 +15,6 @@ export class AnchorsPlanesHitVideoScene {
     private controller0;
     private controller1;
     private videoPlayer?: VideoPlayer;
-    private reticle;
     private planeManager?: PlanesManager;
     private controllers?: Controllers;
 
@@ -47,7 +47,7 @@ export class AnchorsPlanesHitVideoScene {
         //
 
         document.body.appendChild( ARButton.createButton( this.renderer, {
-            requiredFeatures: ['anchors', 'plane-detection'],
+            requiredFeatures: ['anchors', 'plane-detection'], // TODO: add hit-test when working on Quest.
             optionalFeatures: [ 'hand-tracking', 'layers' ]
         } ) );
 
@@ -61,36 +61,43 @@ export class AnchorsPlanesHitVideoScene {
         this.handleControllerEventsAnchors(this.controller0);
         this.handleControllerEventsAnchors(this.controller1);
 
-        this.controllers = new Controllers(this.renderer, this.scene, this.handleControllerEvent);
+        this.controllers = new Controllers(this.renderer, this.scene, this.handleControllerEvent, this.controller0, this.controller1);
 
         window.addEventListener( 'resize', this.onWindowResize );
 
-        this.renderer.xr.addEventListener( 'sessionstart', async (event) => {
-            this.camera.position.set( 0, 0, 0 );
-
-            const val = localStorage.getItem( 'webxr_ar_anchors_handles' );
-            const persistentHandles = JSON.parse( val! ) || [];
-
-            for (const uuid of persistentHandles) {
-                this.renderer.xr.restoreAnchor( uuid );
-            }
-
-            this.session = (event.target as WebXRManager).getSession();
-        } );
+        this.renderer.xr.addEventListener( 'sessionstart', this.onSessionStart);
 
         // Init planes.
         this.planeManager = new PlanesManager(this.renderer);
 
         this.initAnchors();
 
-        this.session.addEventListener('end', () => {
-            this.destroy();
-        });
+        this.session.addEventListener('end', this.onDestroy);
+    }
+
+    private onDestroy = () => {
+        this.destroy();
+    }
+
+    private onSessionStart = async (event) => {
+        this.camera.position.set( 0, 0, 0 );
+
+        const val = localStorage.getItem( 'webxr_ar_anchors_handles' );
+        const persistentHandles = JSON.parse( val! ) || [];
+
+        for (const uuid of persistentHandles) {
+            this.renderer.xr.restoreAnchor( uuid );
+        }
+
+        this.session = (event.target as WebXRManager).getSession();
     }
 
     destroy() {
         this.planeManager?.destroy();
         this.clearAnchors();
+        this.videoPlayer?.destroy();
+        this.renderer.xr.removeEventListener( 'sessionstart', this.onSessionStart);
+        this.session.removeEventListener('end', this.onDestroy);
     }
 
     private handleControllerEvent = (evt: EventType) => {
@@ -105,11 +112,17 @@ export class AnchorsPlanesHitVideoScene {
                 this.videoPlayer?.pause();
                 this.session?.end();
                 break;
+            case EventType.sizeUp:
+                // TODO
+                break;
+            case EventType.sizeDown:
+                // TODO
+                break;
         }
     }
 
     private initAnchors() {
-        // TODO: move to separate class.
+        // TODO: move anchors to separate class.
 
         this.renderer.xr.addEventListener( 'anchoradded', this.anchorAdded);
         this.renderer.xr.addEventListener( 'anchorremoved', this.anchorRemoved);
@@ -156,52 +169,31 @@ export class AnchorsPlanesHitVideoScene {
             const frame = await this.renderer.xr.getFrame();
             const anchorPose = await frame.getPose( anchor.anchorSpace, referenceSpace );
 
+            // TODO: Remove anchors placeholder
             const boxMesh = new Mesh(
-                new BoxGeometry( 0.150, 0.075, 0.02 ),
+                new BoxGeometry( 0.02, 0.02, 0.02 ),
                 new MeshBasicMaterial( { color: 0xffffff * Math.random() } )
             );
             boxMesh.matrixAutoUpdate = false;
             await boxMesh.matrix.fromArray( anchorPose.transform.matrix );
-            await this.scene.add( boxMesh );
+            
+            const cameraPosition = this.camera.position;
+
+            // Should face the camera:
+            const anchorRotation = Math.atan2( ( cameraPosition.x - boxMesh.position.x ), ( cameraPosition.z - boxMesh.position.z ) ); // Anchor should face the camera.
+            boxMesh.rotation.y = anchorRotation;
+
+            await this.scene?.add( boxMesh );
 
             if (this.videoPlayer === undefined) {
-                this.videoPlayer = new VideoPlayer();
+                this.videoPlayer = new VideoPlayer(this.controllers!);
                 this.videoPlayer.init();
             }
 
-            this.videoPlayer.showVideoPlayer(this.renderer, this.session, boxMesh);
+            this.videoPlayer.showVideoPlayer(this.renderer, this.session, boxMesh, this.camera);
 
             this.anchorCubes.set( anchor, boxMesh );
         } );
-    };
-
-    private initHitTest() {
-        //
-
-        // TODO: investigate why it's not working on Quest.
-
-        this.reticle = new Mesh(
-            new RingGeometry( 0.15, 0.2, 32 ).rotateX( - Math.PI / 2 ),
-            new MeshBasicMaterial()
-        );
-        this.reticle.matrixAutoUpdate = false;
-        this.reticle.visible = false;
-        this.scene.add( this.reticle );
-
-        //
-    }
-
-    private handleControllerEventsHitTest(controller: Group) {
-        controller.addEventListener('select', async (event: any) => {
-            const geometry = new CylinderGeometry( 0.1, 0.1, 0.2, 32 ).translate( 0, 0.1, 0 );
-            if ( this.reticle.visible ) {
-                const material = new MeshPhongMaterial( { color: 0xffffff * Math.random() } );
-                const mesh = new Mesh( geometry, material );
-                this.reticle.matrix.decompose( mesh.position, mesh.quaternion, mesh.scale );
-                mesh.scale.y = Math.random() * 2 + 1;
-                this.scene.add( mesh );
-            }
-        })
     };
 
     private handleControllerEventsAnchors(controller: Group) {
@@ -214,28 +206,31 @@ export class AnchorsPlanesHitVideoScene {
             const controllerPosition = controller.position;
             const controllerRotation = new Quaternion().setFromEuler( controller.rotation );
 
-            const val = localStorage.getItem( 'webxr_ar_anchors_handles' );
+            // const cameraPosition = this.camera.position;
+            // const anchorRotation = Math.atan2( ( cameraPosition.x - controller.position.x ), ( cameraPosition.z - controller.position.z ) ); // Anchor should face the camera.
+
+            const anchorsId = 'webxr_ar_anchors_handles';
+            const val = localStorage.getItem( anchorsId );
             const persistentHandles = JSON.parse( val! ) || [];
 
             if ( persistentHandles.length >= 1 ) {
+                // Clear the anchors.
                 while( persistentHandles.length != 0 ) {
                     const handle = persistentHandles.pop();
                     await this.renderer.xr.deleteAnchor( handle );
-                    await localStorage.setItem( 'webxr_ar_anchors_handles', JSON.stringify( persistentHandles ) );
-                    // await this.videoPlayer?.hideVideoPlayer(this.renderer, this.session);
+                    await localStorage.setItem( anchorsId, JSON.stringify( persistentHandles ) );
                 }
 
-                this.anchorCubes.forEach( ( cube, handle ) => {
-                    this.scene.remove( cube );
+                this.anchorCubes.forEach( ( cube ) => {
+                    this.scene?.remove( cube );
                 } );
 
                 this.anchorCubes = new Map();
 
             } else {
                 const uuid = await this.renderer.xr.createAnchor( controllerPosition, controllerRotation, true );
-                //const uuid = await this.renderer.xr.createAnchor( controllerPosition, true );
                 persistentHandles.push( uuid );
-                localStorage.setItem( 'webxr_ar_anchors_handles', JSON.stringify(persistentHandles) );
+                localStorage.setItem( anchorsId, JSON.stringify(persistentHandles) );
             }
         });
     }

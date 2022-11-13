@@ -4,12 +4,13 @@ export class PlanesManager {
     private planesAdded = new Set();
 
     constructor(private renderer: WebGLRenderer) {
+        this.subscribeToEvents();
+    }
+
+    private subscribeToEvents() {
         this.renderer.xr.addEventListener( 'planeadded', this.planeAdded);
-
         this.renderer.xr.addEventListener( 'planeremoved', this.planeRemoved);
-
         this.renderer.xr.addEventListener( 'planechanged', this.planeChanged);
-
         this.renderer.xr.addEventListener( 'planesdetected', this.planesDetected );
     }
 
@@ -38,8 +39,6 @@ export class PlanesManager {
 
             this.planesAdded.add( plane );
 
-            const frame = (this.renderer.xr as any).getFrame();
-            const planePose = frame.getPose( plane.planeSpace, referenceSpace );
             const polygon = plane.polygon;
 
             let minX = Number.MAX_SAFE_INTEGER;
@@ -56,6 +55,9 @@ export class PlanesManager {
 
             } );
 
+            // Show polygons on scene:
+            // const frame = (this.renderer.xr as any).getFrame();
+            // const planePose = frame.getPose( plane.planeSpace, referenceSpace );
             // const width = maxX - minX;
             // const height = maxZ - minZ;
 

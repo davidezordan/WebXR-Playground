@@ -2,18 +2,9 @@ import { Group, Line, WebGLRenderer, Scene, BufferGeometry, Vector3 } from "thre
 import { XRControllerModelFactory } from "three/examples/jsm/webxr/XRControllerModelFactory";
 import { XRHandModelFactory } from "three/examples/jsm/webxr/XRHandModelFactory";
 import { CanvasUI } from "./canvas-ui";
-
-export enum EventType {
-    play,
-    pause,
-    exit
-}
-
-export type ControllerEventHandler = (evt: EventType) => void;
+import { ControllerEventHandler, EventType } from "./event-type";
 
 export class Controllers {
-    private controller1?: Group;
-    private controller2?: Group;
     private controllerGrip1?: Group;
     private controllerGrip2?: Group;
     private hand1?: Group;
@@ -22,16 +13,10 @@ export class Controllers {
     private rightJoints: any;
     private rightIndex: any;
     private ui: CanvasUI;
-    private line?: Line;
 
-    constructor(private renderer: WebGLRenderer, private scene: Scene, private evtHandler: ControllerEventHandler) {
-        // controllers
-        this.controller1 = this.renderer.xr.getController(0);
-        this.scene.add(this.controller1);
-
-        this.controller2 = this.renderer.xr.getController(1);
-        this.scene.add(this.controller2);
-
+    constructor(private renderer: WebGLRenderer, private scene: Scene, private evtHandler: ControllerEventHandler,
+        private controller1: Group, private controller2: Group) {
+        // TODO: should use the real hands using passthrough.
         const controllerModelFactory = new XRControllerModelFactory();
         const handModelFactory = new XRHandModelFactory();
 
@@ -78,21 +63,11 @@ export class Controllers {
         this.ui.mesh.visible = false;
 
         this.scene.add(this.ui.mesh);
-
-        const geometry = new BufferGeometry().setFromPoints( [ new Vector3( 0, 0, 0 ), new Vector3( 0, 0, - 1 ) ] );
-
-        this.line = new Line( geometry );
-        this.line.name = 'line';
-
-        this.scene.add(this.line);
-        /*
-        this.controller1.add( line.clone() );
-        this.controller2.add( line.clone() );
-        */
     }
 
     public updateInfoText(text: string) {
         this.ui.updateElement('info', text);
+        console.log('**** Updating player info text:', text);
     }
 
     public update = () => {
