@@ -1,4 +1,4 @@
-import { Group, Line, WebGLRenderer, Scene, BufferGeometry, Vector3 } from "three";
+import { Group, WebGLRenderer, Scene } from "three";
 import { XRControllerModelFactory } from "three/examples/jsm/webxr/XRControllerModelFactory";
 import { XRHandModelFactory } from "three/examples/jsm/webxr/XRHandModelFactory";
 import { CanvasUI } from "./canvas-ui";

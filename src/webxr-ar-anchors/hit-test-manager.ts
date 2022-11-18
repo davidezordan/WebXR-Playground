@@ -1,6 +1,6 @@
 import { CylinderGeometry, Group, Mesh, MeshBasicMaterial, MeshPhongMaterial, RingGeometry, Scene } from "three";
 
-// To be implemented when hit-test can be enabled on Quest. Investigate if it's possible to use now with workarounds.
+// TODO: To be implemented when hit-test can be enabled on Quest. Investigate if it's possible to use now with workarounds.
 export class HitTestManager {
     constructor(private scene: Scene) {
     }
@@ -9,8 +9,6 @@ export class HitTestManager {
 
     private initHitTest() {
         //
-
-        // TODO: investigate why it's not working on Quest.
 
         this.reticle = new Mesh(
             new RingGeometry( 0.15, 0.2, 32 ).rotateX( - Math.PI / 2 ),

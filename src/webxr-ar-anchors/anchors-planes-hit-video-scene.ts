@@ -57,7 +57,6 @@ export class AnchorsPlanesHitVideoScene {
         this.controller1 = this.renderer.xr.getController( 1 );
         this.scene.add( this.controller1 );
 
-        // this.handleControllerEventsHitTest(this.controller0);
         this.handleControllerEventsAnchors(this.controller0);
         this.handleControllerEventsAnchors(this.controller1);
 
@@ -68,7 +67,7 @@ export class AnchorsPlanesHitVideoScene {
         this.renderer.xr.addEventListener( 'sessionstart', this.onSessionStart);
 
         // Init planes.
-        this.planeManager = new PlanesManager(this.renderer);
+        this.planeManager = new PlanesManager(this.renderer, this.scene);
 
         this.initAnchors();
 
@@ -205,9 +204,6 @@ export class AnchorsPlanesHitVideoScene {
 
             const controllerPosition = controller.position;
             const controllerRotation = new Quaternion().setFromEuler( controller.rotation );
-
-            // const cameraPosition = this.camera.position;
-            // const anchorRotation = Math.atan2( ( cameraPosition.x - controller.position.x ), ( cameraPosition.z - controller.position.z ) ); // Anchor should face the camera.
 
             const anchorsId = 'webxr_ar_anchors_handles';
             const val = localStorage.getItem( anchorsId );

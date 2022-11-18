@@ -1,10 +1,10 @@
-import { WebGLRenderer } from "three";
+import { BoxGeometry, Mesh, MeshBasicMaterial, Scene, WebGLRenderer } from "three";
 
 // TODO: Ideally the video player should be pinnable in one of the walls detected by the PlanesManager.
 export class PlanesManager {
     private planesAdded = new Set();
 
-    constructor(private renderer: WebGLRenderer) {
+    constructor(private renderer: WebGLRenderer, private scene: Scene) {
         this.subscribeToEvents();
     }
 
@@ -35,7 +35,6 @@ export class PlanesManager {
 
         // @ts-ignore
         detectedPlanes.forEach((plane) => {
-
             if ( this.planesAdded.has( plane ) ) return;
 
             this.planesAdded.add( plane );
@@ -57,18 +56,18 @@ export class PlanesManager {
             } );
 
             // Show polygons on scene:
-            // const frame = (this.renderer.xr as any).getFrame();
-            // const planePose = frame.getPose( plane.planeSpace, referenceSpace );
-            // const width = maxX - minX;
-            // const height = maxZ - minZ;
+            const frame = (this.renderer.xr as any).getFrame();
+            const planePose = frame.getPose( plane.planeSpace, referenceSpace );
+            const width = maxX - minX;
+            const height = maxZ - minZ;
 
-            // const boxMesh = new THREE.Mesh(
-            //     new THREE.BoxGeometry( width, 0.01, height ),
-            //     new THREE.MeshBasicMaterial( { color: 0xffffff * Math.random() } )
-            // );
-            // boxMesh.matrixAutoUpdate = false;
-            // boxMesh.matrix.fromArray( planePose.transform.matrix );
-            // scene.add( boxMesh );
+            const boxMesh = new Mesh(
+                new BoxGeometry( width, 0.01, height ),
+                new MeshBasicMaterial( { color: 0xffffff * Math.random(), transparent: true, opacity: 0 } )
+            );
+            boxMesh.matrixAutoUpdate = false;
+            boxMesh.matrix.fromArray( planePose.transform.matrix );
+            this.scene.add( boxMesh );
         })
     };
 
