@@ -11,11 +11,11 @@
     "watch": "webpack --watch",
     "start": "node dist-server/main.js"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "Davide Zordan",
+  "license": "MIT",
   "dependencies": {
     "express": "^4.17.2",
-    "shaka-player": "^3.2.0",
+    "shaka-player": "^3.3.1",
     "three": "davidezordan/three.js-hackathon"
   },
   "devDependencies": {
