@@ -1,35 +1,36 @@
-import { BoxGeometry, Group, HemisphereLight, Mesh, MeshBasicMaterial, MeshPhongMaterial, PerspectiveCamera, Quaternion, RingGeometry, Scene, WebGLRenderer, WebXRManager } from "three";
+import { BoxGeometry, Group, HemisphereLight, Mesh, MeshBasicMaterial, PerspectiveCamera, Quaternion, Scene, WebGLRenderer, WebXRManager } from "three";
 import { ARButton } from "three/examples/jsm/webxr/ARButton";
 import { Controllers } from "../helpers/controllers";
 import { EventType } from "../helpers/event-type";
+import { AnchorsManager } from "./anchors-manager";
 import { PlanesManager } from "./planes-manager";
 import { VideoPlayer } from "./videoplayer";
 
 export class AnchorsPlanesHitVideoScene {
-    private renderer;
-    private scene?: Scene;
-    private camera;
-    private session;
+    private renderer?: WebGLRenderer;
+    private scene: Scene;
+    private camera: PerspectiveCamera;
+    private session?: THREE.XRSession | null;
     private anchorCubes = new Map();
     private anchorsAdded = new Set();
-    private controller0;
-    private controller1;
+    private controller0?: Group;
+    private controller1?: Group;
     private videoPlayer?: VideoPlayer;
     private planeManager?: PlanesManager;
     private controllers?: Controllers;
+    private anchorsManager?: AnchorsManager;
 
     constructor() {
+        this.scene = new Scene();
+
+        this.camera = new PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 0.01, 20 );
+
         this.init();
     }
 
     private async init() {
-
         const container = document.createElement( 'div' );
         document.body.appendChild( container );
-
-        this.scene = new Scene();
-
-        this.camera = new PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 0.01, 20 );
 
         const light = new HemisphereLight( 0xffffff, 0xbbbbff, 1 );
         light.position.set( 0.5, 1, 0.25 );
@@ -46,32 +47,36 @@ export class AnchorsPlanesHitVideoScene {
 
         //
 
-        document.body.appendChild( ARButton.createButton( this.renderer, {
-            requiredFeatures: ['anchors', 'plane-detection'], // TODO: add hit-test when working on Quest.
-            optionalFeatures: [ 'hand-tracking', 'layers' ]
-        } ) );
+        this.initControllers();
 
-        this.controller0 = this.renderer.xr.getController( 0 );
-        this.scene.add( this.controller0 );
+        this.planeManager = new PlanesManager(this.renderer, this.scene);
 
-        this.controller1 = this.renderer.xr.getController( 1 );
-        this.scene.add( this.controller1 );
-
-        this.handleControllerEventsAnchors(this.controller0);
-        this.handleControllerEventsAnchors(this.controller1);
-
-        this.controllers = new Controllers(this.renderer, this.scene, this.handleControllerEvent, this.controller0, this.controller1);
+        this.anchorsManager = new AnchorsManager(this.renderer!);
+        this.initAnchors();
 
         window.addEventListener( 'resize', this.onWindowResize );
 
         this.renderer.xr.addEventListener( 'sessionstart', this.onSessionStart);
 
-        // Init planes.
-        this.planeManager = new PlanesManager(this.renderer, this.scene);
+        this.session?.addEventListener('end', this.onDestroy);
 
-        this.initAnchors();
+        document.body.appendChild( ARButton.createButton( this.renderer, {
+            requiredFeatures: ['anchors', 'plane-detection'], // TODO: add hit-test when working on Quest.
+            optionalFeatures: [ 'hand-tracking', 'layers' ]
+        } ) );
+    }
 
-        this.session.addEventListener('end', this.onDestroy);
+    initControllers() {
+        this.controller0 = this.renderer?.xr.getController( 0 );
+        this.scene.add( this.controller0! );
+
+        this.controller1 = this.renderer?.xr.getController( 1 );
+        this.scene.add( this.controller1! );
+
+        this.handleControllerEventsAnchors(this.controller0!);
+        this.handleControllerEventsAnchors(this.controller1!);
+
+        this.controllers = new Controllers(this.renderer!, this.scene, this.handleControllerEvent, this.controller0!, this.controller1!);
     }
 
     private onDestroy = () => {
@@ -85,7 +90,7 @@ export class AnchorsPlanesHitVideoScene {
         const persistentHandles = JSON.parse( val! ) || [];
 
         for (const uuid of persistentHandles) {
-            this.renderer.xr.restoreAnchor( uuid );
+            (this.renderer?.xr as any).restoreAnchor( uuid );
         }
 
         this.session = (event.target as WebXRManager).getSession();
@@ -95,8 +100,9 @@ export class AnchorsPlanesHitVideoScene {
         this.planeManager?.destroy();
         this.clearAnchors();
         this.videoPlayer?.destroy();
-        this.renderer.xr.removeEventListener( 'sessionstart', this.onSessionStart);
-        this.session.removeEventListener('end', this.onDestroy);
+        this.renderer?.xr.removeEventListener( 'sessionstart', this.onSessionStart);
+        this.session?.removeEventListener('end', this.onDestroy);
+        this.anchorsManager?.destroy();
     }
 
     private handleControllerEvent = (evt: EventType) => {
@@ -121,28 +127,14 @@ export class AnchorsPlanesHitVideoScene {
     }
 
     private initAnchors() {
-        // TODO: move anchors to separate class.
-
-        this.renderer.xr.addEventListener( 'anchoradded', this.anchorAdded);
-        this.renderer.xr.addEventListener( 'anchorremoved', this.anchorRemoved);
-        this.renderer.xr.addEventListener( 'anchorposechanged', this.anchorChanged);
-        this.renderer.xr.addEventListener( 'anchorsdetected', this.anchorsDetected);
+        this.renderer?.xr.addEventListener( 'anchorposechanged', this.anchorChanged);
+        this.renderer?.xr.addEventListener( 'anchorsdetected', this.anchorsDetected);
     }
 
     private clearAnchors() {
-        this.renderer.xr.removeEventListener( 'anchoradded', this.anchorAdded);
-        this.renderer.xr.removeEventListener( 'anchorremoved', this.anchorRemoved);
-        this.renderer.xr.removeEventListener( 'anchorposechanged', this.anchorChanged);
-        this.renderer.xr.removeEventListener( 'anchorsdetected', this.anchorsDetected);
+        this.renderer?.xr.removeEventListener( 'anchorposechanged', this.anchorChanged);
+        this.renderer?.xr.removeEventListener( 'anchorsdetected', this.anchorsDetected);
     }
-
-    private anchorAdded = (e) => {
-        // console.log( "anchor added", e.data )
-    };
-
-    private anchorRemoved = (e) => {
-        // console.log( "anchor removed", e.data )
-    };
 
     private anchorChanged = (e) => {
         const { anchor, pose } = e.data;
@@ -157,7 +149,7 @@ export class AnchorsPlanesHitVideoScene {
 
     private anchorsDetected = async (e) => {
         const detectedAnchors = e.data;
-        const referenceSpace = this.renderer.xr.getReferenceSpace();
+        const referenceSpace = this.renderer?.xr.getReferenceSpace();
 
         // console.log( `Detected ${detectedAnchors.size} anchors` );
 
@@ -165,10 +157,9 @@ export class AnchorsPlanesHitVideoScene {
             if ( this.anchorsAdded.has( anchor ) ) return;
 
             this.anchorsAdded.add( anchor );
-            const frame = await this.renderer.xr.getFrame();
+            const frame = await (this.renderer?.xr as any).getFrame();
             const anchorPose = await frame.getPose( anchor.anchorSpace, referenceSpace );
 
-            // TODO: Remove anchors placeholder
             const boxMesh = new Mesh(
                 new BoxGeometry( 0.02, 0.02, 0.02 ),
                 new MeshBasicMaterial( { color: 0xffffff * Math.random() } )
@@ -189,7 +180,7 @@ export class AnchorsPlanesHitVideoScene {
                 this.videoPlayer.init();
             }
 
-            this.videoPlayer.showVideoPlayer(this.renderer, this.session, boxMesh, this.camera);
+            this.videoPlayer.showVideoPlayer(this.renderer!, this.session, boxMesh, this.camera);
 
             this.anchorCubes.set( anchor, boxMesh );
         } );
@@ -213,7 +204,7 @@ export class AnchorsPlanesHitVideoScene {
                 // Clear the anchors.
                 while( persistentHandles.length != 0 ) {
                     const handle = persistentHandles.pop();
-                    await this.renderer.xr.deleteAnchor( handle );
+                    await (this.renderer?.xr as any).deleteAnchor( handle );
                     await localStorage.setItem( anchorsId, JSON.stringify( persistentHandles ) );
                 }
 
@@ -224,7 +215,7 @@ export class AnchorsPlanesHitVideoScene {
                 this.anchorCubes = new Map();
 
             } else {
-                const uuid = await this.renderer.xr.createAnchor( controllerPosition, controllerRotation, true );
+                const uuid = await (this.renderer?.xr as any).createAnchor( controllerPosition, controllerRotation, true );
                 persistentHandles.push( uuid );
                 localStorage.setItem( anchorsId, JSON.stringify(persistentHandles) );
             }
@@ -235,11 +226,11 @@ export class AnchorsPlanesHitVideoScene {
         this.camera.aspect = window.innerWidth / window.innerHeight;
         this.camera.updateProjectionMatrix();
 
-        this.renderer.setSize( window.innerWidth, window.innerHeight );
+        this.renderer?.setSize( window.innerWidth, window.innerHeight );
     }
 
     private render = () => {
-        if (!this.renderer.xr.isPresenting) return;
+        if (!this.renderer?.xr.isPresenting) return;
         this.renderer.render(this.scene, this.camera);
         this.controllers?.update();
     }
