@@ -15,7 +15,7 @@
   "license": "ISC",
   "dependencies": {
     "express": "^4.17.2",
-    "three": "file:../three.js-anchors2",
+    "three": "davidezordan/three.js-hackathon"
     "shaka-player": "^3.2.0"
 
   },
