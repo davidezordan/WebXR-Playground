@@ -15,16 +15,13 @@ export class PlanesManager {
         this.renderer.xr.addEventListener( 'planesdetected', this.planesDetected );
     }
 
-    private planeAdded = (e) => {
-        // console.log( "plane added", e.data )
+    private planeAdded = () => {
     };
 
-    private planeRemoved = (e) => {
-        // console.log( "plane removed", e.data )
+    private planeRemoved = () => {
     };
 
-    private planeChanged = (e) => {
-        // console.log( "plane changed", e.data )
+    private planeChanged = () => {
     };
 
     private planesDetected = (e) => {
@@ -36,6 +33,8 @@ export class PlanesManager {
         // @ts-ignore
         detectedPlanes.forEach((plane) => {
             if ( this.planesAdded.has( plane ) ) return;
+
+            if ( plane.orientation.toLowerCase() === 'horizontal') return;
 
             this.planesAdded.add( plane );
 
@@ -67,6 +66,8 @@ export class PlanesManager {
             );
             boxMesh.matrixAutoUpdate = false;
             boxMesh.matrix.fromArray( planePose.transform.matrix );
+            boxMesh.name = "plane-" + plane.orientation;
+
             this.scene.add( boxMesh );
         })
     };

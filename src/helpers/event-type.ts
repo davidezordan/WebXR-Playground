@@ -6,4 +6,4 @@ export enum EventType {
     sizeDown
 }
 
-export type ControllerEventHandler = (evt: EventType) => void;
+

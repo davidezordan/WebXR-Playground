@@ -2,7 +2,8 @@ import { Group, WebGLRenderer, Scene } from "three";
 import { XRControllerModelFactory } from "three/examples/jsm/webxr/XRControllerModelFactory";
 import { XRHandModelFactory } from "three/examples/jsm/webxr/XRHandModelFactory";
 import { CanvasUI } from "./canvas-ui";
-import { ControllerEventHandler, EventType } from "./event-type";
+import { EventType } from "./event-type";
+import { ControllerEventHandler } from "./ControllerEventHandler";
 
 export class Controllers {
     private controllerGrip1?: Group;
