@@ -15,12 +15,10 @@ export class AnchorsManager {
         this.renderer.xr.removeEventListener( 'anchorremoved', this.anchorRemoved);
     }
 
-    private anchorAdded = (e) => {
-        // console.log( "anchor added", e.data )
+    private anchorAdded = () => {
     };
 
-    private anchorRemoved = (e) => {
-        // console.log( "anchor removed", e.data )
+    private anchorRemoved = () => {
     };
 
     public destroy() {
