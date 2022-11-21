@@ -5,8 +5,6 @@ import { EventType } from "./event-type";
 import { ControllerEventHandler } from "./ControllerEventHandler";
 
 export class Controllers {
-    private controllerGrip1?: Group;
-    private controllerGrip2?: Group;
     private hand1?: Group;
     private hand2?: Group;
     private leftJoints: any;
@@ -17,22 +15,12 @@ export class Controllers {
     constructor(private renderer: WebGLRenderer, private scene: Scene, private evtHandler: ControllerEventHandler,
         private controller1: Group, private controller2: Group) {
 
-        const controllerModelFactory = new XRControllerModelFactory();
-
         // Hand 1
-        this.controllerGrip1 = this.renderer.xr.getControllerGrip(0);
-        this.controllerGrip1.add(controllerModelFactory.createControllerModel(this.controllerGrip1));
-        this.scene.add(this.controllerGrip1);
-
         this.hand1 = this.renderer.xr.getHand(0);
         this.scene.add(this.hand1);
 
         // Hand 2
-        this.controllerGrip2 = this.renderer.xr.getControllerGrip(1);
-        this.controllerGrip2.add( controllerModelFactory.createControllerModel(this.controllerGrip2));
-        this.scene.add(this.controllerGrip2);
-
-        this.hand2 = this.renderer.xr.getHand(1);
+         this.hand2 = this.renderer.xr.getHand(1);
         this.scene.add(this.hand2);
 
         // handle controller/hand events
@@ -50,6 +38,7 @@ export class Controllers {
             stop: { type: "button", position:{ top: 70, left: 114 }, width: 40, height: 52, backgroundColor: "#bbb", fontColor: "#bb0", hover: "#fff", onSelect: () => this.evtHandler(EventType.exit) },
             renderer: this.renderer
         };
+        
         const uiContent = {
             info: 'loading',
             pause: '<path>M 17 10 L 7 10 L 7 40 L 17 40 Z M 32 10 L 22 10 L 22 40 L 32 40 Z</path>',
