@@ -17,6 +17,7 @@ export class Controllers {
 
     constructor(private renderer: WebGLRenderer, private scene: Scene, private evtHandler: ControllerEventHandler,
         private controller1: Group, private controller2: Group) {
+
         // TODO: should use the real hands using passthrough.
         const controllerModelFactory = new XRControllerModelFactory();
         const handModelFactory = new XRHandModelFactory();
@@ -73,9 +74,14 @@ export class Controllers {
 
     public update = () => {
         if (!this.renderer.xr.isPresenting) return;
+
         if (this.leftJoints) {
             const leftPinky = this.leftJoints['pinky-finger-tip'];
             const leftThumb = this.leftJoints['thumb-tip'];
+
+            if (!leftPinky || !leftThumb) {
+                return;
+            }
 
             this.ui.mesh.visible = leftPinky.position.x - leftThumb.position.x > leftThumb.position.distanceTo(leftPinky.position) * 2 / 3;
 
@@ -84,6 +90,7 @@ export class Controllers {
                 this.ui.mesh.position.set(pos.x + 0.2, pos.y, pos.z);
             }
         }
+        
         if (this.rightJoints && !this.rightIndex) {
             const rightIndexTip = this.rightJoints['index-finger-tip'];
             const rightIndexPhalanxDistal = this.rightJoints['index-finger-phalanx-distal'];

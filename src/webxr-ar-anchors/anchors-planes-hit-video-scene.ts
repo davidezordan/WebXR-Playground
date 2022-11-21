@@ -193,8 +193,8 @@ export class AnchorsPlanesHitVideoScene {
                 return;
             }
 
-            const controllerPosition = controller.position;
-            const controllerRotation = new Quaternion().setFromEuler( controller.rotation );
+            const anchorPosition = controller.position;
+            const anchorRotation = new Quaternion().setFromEuler( controller.rotation );
 
             const anchorsId = 'webxr_ar_anchors_handles';
             const val = localStorage.getItem( anchorsId );
@@ -213,9 +213,8 @@ export class AnchorsPlanesHitVideoScene {
                 } );
 
                 this.anchorCubes = new Map();
-
             } else {
-                const uuid = await (this.renderer?.xr as any).createAnchor( controllerPosition, controllerRotation, true );
+                const uuid = await (this.renderer?.xr as any).createAnchor( anchorPosition, anchorRotation, true );
                 persistentHandles.push( uuid );
                 localStorage.setItem( anchorsId, JSON.stringify(persistentHandles) );
             }

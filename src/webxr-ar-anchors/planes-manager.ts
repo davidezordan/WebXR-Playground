@@ -27,7 +27,9 @@ export class PlanesManager {
         const detectedPlanes = e.data;
         const referenceSpace = this.renderer.xr.getReferenceSpace();
 
-        // console.log( `Detected ${detectedPlanes.size} planes` );
+        if (detectedPlanes && detectedPlanes.size > 0) {
+            console.log( `Detected ${detectedPlanes.size} planes` );
+        }
 
         // @ts-ignore
         detectedPlanes.forEach((plane) => {
