@@ -1,6 +1,5 @@
 import { Group, WebGLRenderer, Scene } from "three";
 import { XRControllerModelFactory } from "three/examples/jsm/webxr/XRControllerModelFactory";
-import { XRHandModelFactory } from "three/examples/jsm/webxr/XRHandModelFactory";
 import { CanvasUI } from "./canvas-ui";
 import { EventType } from "./event-type";
 import { ControllerEventHandler } from "./ControllerEventHandler";
@@ -18,9 +17,7 @@ export class Controllers {
     constructor(private renderer: WebGLRenderer, private scene: Scene, private evtHandler: ControllerEventHandler,
         private controller1: Group, private controller2: Group) {
 
-        // TODO: should use the real hands using passthrough.
         const controllerModelFactory = new XRControllerModelFactory();
-        const handModelFactory = new XRHandModelFactory();
 
         // Hand 1
         this.controllerGrip1 = this.renderer.xr.getControllerGrip(0);
@@ -28,7 +25,6 @@ export class Controllers {
         this.scene.add(this.controllerGrip1);
 
         this.hand1 = this.renderer.xr.getHand(0);
-        this.hand1.add(handModelFactory.createHandModel(this.hand1, 'mesh' as any));
         this.scene.add(this.hand1);
 
         // Hand 2
@@ -37,12 +33,11 @@ export class Controllers {
         this.scene.add(this.controllerGrip2);
 
         this.hand2 = this.renderer.xr.getHand(1);
-        this.hand2.add(handModelFactory.createHandModel(this.hand2, 'mesh' as any));
         this.scene.add(this.hand2);
 
         // handle controller/hand events
-        this.handleControllerEvents(this.controller1, this.hand1);
-        this.handleControllerEvents(this.controller2, this.hand2);
+        this.handleControllerEvents(this.controller1, this.hand1!);
+        this.handleControllerEvents(this.controller2, this.hand2!);
 
         const uiConfig = {
             panelSize: { width: 0.250, height: 0.125},
@@ -90,7 +85,7 @@ export class Controllers {
                 this.ui.mesh.position.set(pos.x + 0.2, pos.y, pos.z);
             }
         }
-        
+
         if (this.rightJoints && !this.rightIndex) {
             const rightIndexTip = this.rightJoints['index-finger-tip'];
             const rightIndexPhalanxDistal = this.rightJoints['index-finger-phalanx-distal'];
