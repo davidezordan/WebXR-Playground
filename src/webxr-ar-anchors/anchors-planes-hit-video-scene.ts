@@ -76,7 +76,7 @@ export class AnchorsPlanesHitVideoScene {
         this.handleControllerEventsAnchors(this.controller0!);
         this.handleControllerEventsAnchors(this.controller1!);
 
-        this.controllers = new Controllers(this.renderer!, this.scene, this.handleControllerEvent, this.controller0!, this.controller1!);
+        this.controllers = new Controllers(this.renderer!, this.scene, this.handleControllerEvent, this.controller0!, this.controller1!, this.camera);
     }
 
     private onDestroy = () => {

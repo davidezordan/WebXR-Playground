@@ -1,5 +1,4 @@
-import { Group, WebGLRenderer, Scene } from "three";
-import { XRControllerModelFactory } from "three/examples/jsm/webxr/XRControllerModelFactory";
+import { Group, WebGLRenderer, Scene, Camera, Vector3 } from "three";
 import { CanvasUI } from "./canvas-ui";
 import { EventType } from "./event-type";
 import { ControllerEventHandler } from "./ControllerEventHandler";
@@ -13,14 +12,14 @@ export class Controllers {
     private ui: CanvasUI;
 
     constructor(private renderer: WebGLRenderer, private scene: Scene, private evtHandler: ControllerEventHandler,
-        private controller1: Group, private controller2: Group) {
+        private controller1: Group, private controller2: Group, private camera: Camera) {
 
         // Hand 1
         this.hand1 = this.renderer.xr.getHand(0);
         this.scene.add(this.hand1);
 
         // Hand 2
-         this.hand2 = this.renderer.xr.getHand(1);
+        this.hand2 = this.renderer.xr.getHand(1);
         this.scene.add(this.hand2);
 
         // handle controller/hand events
@@ -68,10 +67,16 @@ export class Controllers {
             }
 
             this.ui.mesh.visible = leftPinky.position.x - leftThumb.position.x > leftThumb.position.distanceTo(leftPinky.position) * 2 / 3;
+            const ui = this.ui.mesh;
+
+            let pp = new Vector3(leftPinky.position.x, leftPinky.position.y, leftPinky.position.z);
+            let tp = new Vector3(leftThumb.position.x, leftThumb.position.y, leftThumb.position.z);
+            ui.visible = pp.x - tp.x > leftThumb.position.distanceTo(leftPinky.position) * 2 / 3;
+            ui.rotation.y = Math.atan2( ( this.camera.position.x - ui.position.x ), ( this.camera.position.z - ui.position.z ) );
 
             if (this.ui.mesh.visible) {
-                const pos = leftPinky.position;
-                this.ui.mesh.position.set(pos.x + 0.2, pos.y, pos.z);
+                const np = leftPinky.position.project(this.camera).add(new Vector3(0.3, 0, 0)).unproject(this.camera);
+                this.ui.mesh.position.set(np.x, np.y, np.z);
             }
         }
 
